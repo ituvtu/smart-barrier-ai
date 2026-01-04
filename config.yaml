@@ -1,0 +1,26 @@
+app:
+  title: "🛡️ Smart Barrier v4 (Enterprise)"
+  theme: "soft"
+  led_colors:
+    allowed: "#00FF00"
+    denied: "#FF0000"
+    wait: "gray"
+
+model:
+  path: "best.onnx"
+  conf_threshold: 0.25
+  task: "detect"
+
+ocr:
+  languages: ["en"]
+  use_gpu: false
+  quantize: true
+  allowlist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+preprocessing:
+  scale: 3
+  padding: 30
+  bilateral:
+    d: 11
+    sigma_color: 17
+    sigma_space: 17

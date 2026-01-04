@@ -5,3 +5,9 @@ numpy
 torch
 torchvision
 opencv-python-headless
+PyYAML
+pytest
+# --- Нові бібліотеки ---
+onnx>=1.14.0
+onnxruntime
+onnxsim
