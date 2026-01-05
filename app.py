@@ -4,11 +4,15 @@ import easyocr
 import numpy as np
 import gradio as gr
 from ultralytics import YOLO
+from huggingface_hub import hf_hub_download
+from datetime import datetime
 from typing import Tuple, Optional, Any, Dict
 from utils import fuzzy_check
 from database import DataManager
 
-# --- 1. CONFIGURATION ---
+MODEL_REPO = "ituvtu/yolo-v10-car-plate-detector"
+MODEL_FILENAME = "yolo-v10-m.pt"
+
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -21,20 +25,26 @@ data_manager = DataManager()
 data_manager.allowed_plates = {"AA0055BP", "KA0132CO", "BO0001OO"}
 data_manager.source_info = "Default Test Data"
 
-# --- 2. CORE LOGIC ---
 class BarrierSystem:
     def __init__(self, config: Dict[str, Any]) -> None:
-        print("🚀 Initializing AI Core...")
-        model_cfg = config.get("model", {})
-        model_path = model_cfg.get("path", "best.pt")
-        task = model_cfg.get("task", "detect")
+        print("🚀 Initializing Smart Barrier System...")
+        
+        self.detector = None
+        self.initialization_error = None
+        
+        try:
+            print(f"📥 Downloading model from {MODEL_REPO}...")
+            model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILENAME)
+            self.detector = YOLO(model_path)
+            print(f"✅ Model loaded successfully from: {model_path}")
+        except Exception as error:
+            print(f"❌ Failed to initialize model: {error}")
+            self.initialization_error = str(error)
+
         ocr_cfg = config.get("ocr", {})
-        
-        self.conf_threshold: float = model_cfg.get("conf_threshold", 0.25)
         self.prep_cfg = config.get("preprocessing", {})
+        self.conf_threshold: float = config.get("model", {}).get("conf_threshold", 0.25)
         self.ocr_allowlist: str = ocr_cfg.get("allowlist", "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-        
-        self.detector = YOLO(model_path, task=task)
         
         self.reader = easyocr.Reader(
             ocr_cfg.get("languages", ['en']),
@@ -58,6 +68,9 @@ class BarrierSystem:
         return cv2.copyMakeBorder(gray_filtered, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)
 
     def detect_and_read(self, image: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], str]:
+        if self.detector is None:
+            return None, None, f"Model Error: {self.initialization_error}"
+
         results = self.detector.predict(image, conf=self.conf_threshold, verbose=False)[0]
         
         if not results.boxes:
@@ -72,7 +85,6 @@ class BarrierSystem:
         if processed is None:
             return crop, None, "Processing error"
 
-        # LOGICAL FILTER
         text_res = self.reader.readtext(
             processed, 
             detail=0, 
@@ -81,7 +93,6 @@ class BarrierSystem:
         )
         full_text = "".join(text_res) if text_res else "Unreadable"
         
-        # COLOR FIX
         crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
         processed_rgb = cv2.cvtColor(processed, cv2.COLOR_GRAY2RGB)
         
@@ -89,7 +100,6 @@ class BarrierSystem:
 
 system = BarrierSystem(CFG)
 
-# --- 3. UI HELPERS ---
 def _led_html(color: str, text: str, status_icon: str) -> str:
     border_color = color if color != "gray" else "#4b5563"
     glow = f"box-shadow: 0 0 20px {color};" if color != "gray" else ""
@@ -131,10 +141,6 @@ def update_database(file, url, query):
         return "⚠️ Select a source first"
     return f"✅ {msg}" if success else f"❌ {msg}"
 
-def import_datetime():
-    from datetime import datetime
-    return datetime.now().strftime("%H:%M:%S")
-
 def pipeline(image: np.ndarray, region_code: str):
     col_wait, col_allow, col_deny = "gray", "#10b981", "#ef4444"
 
@@ -144,13 +150,14 @@ def pipeline(image: np.ndarray, region_code: str):
     crop_orig, crop_proc, raw_text = system.detect_and_read(image)
     
     if crop_orig is None:
-        return None, None, _led_html(col_deny, "NO VEHICLE", "🚫"), "Status: No vehicle detected"
+        status_text = raw_text if raw_text else "No vehicle detected"
+        return None, None, _led_html(col_deny, "NO VEHICLE", "🚫"), f"Status: {status_text}"
 
     db_string = ",".join(data_manager.allowed_plates)
     allowed, clean_num, info = fuzzy_check(raw_text, db_string, region_code)
     
     log_entry = (
-        f"🕒 TIME:   {import_datetime()}\n"
+        f"🕒 TIME:   {datetime.now().strftime('%H:%M:%S')}\n"
         f"📂 SOURCE: {data_manager.source_info}\n"
         f"📷 RAW:    {raw_text}\n"
         f"🎯 RESULT: {clean_num}\n"
@@ -162,20 +169,15 @@ def pipeline(image: np.ndarray, region_code: str):
     else:
         return crop_orig, crop_proc, _led_html(col_deny, "ACCESS DENIED", "🔒"), log_entry
 
-# --- 4. STATIC LAYOUT CSS ---
-
 dashboard_css = """
-/* 1. ПРИМУСОВА ФІКСАЦІЯ ШИРИНИ */
 .gradio-container { 
     max-width: 100% !important; 
     margin: 0 !important;
-    /* Це забороняє інтерфейсу стискатися менше ніж 1200px */
     min-width: 1200px !important; 
     width: 1200px !important;
 }
 footer { display: none !important; }
 
-/* 2. ФІКСАЦІЯ ВИСОТИ КАМЕРИ */
 #main_camera { 
     height: 600px !important; 
     min-height: 600px !important; 
@@ -189,7 +191,6 @@ footer { display: none !important; }
     max-height: 580px !important; 
 }
 
-/* 3. ФІКСАЦІЯ РЕЗУЛЬТАТІВ */
 #res_crop, #res_proc {
     height: 200px !important;
     min-height: 200px !important;
@@ -203,18 +204,13 @@ theme = gr.themes.Soft(
 
 with gr.Blocks(title="Smart Barrier AI v2.0") as demo:
     
-    # 1. HEADER
     with gr.Row(elem_id="header", equal_height=True):
         with gr.Column(scale=2):
-            gr.Markdown("## 🛡️ Smart Barrier AI `v2.0`")
+            gr.Markdown("## 🛡️ Smart Barrier AI `v2.0` (Hub Model)")
         with gr.Column(scale=1):
              led_status = gr.HTML(_led_html("gray", "SYSTEM READY", "✅"))
 
-    # 2. MAIN WORKSPACE
     with gr.Row(equal_height=True, elem_id="main_row"):
-        
-        # LEFT: Camera Feed
-        # min_width=400: Дозволяємо йому бути трохи вужчим, щоб не ламати рядок
         with gr.Column(scale=2, min_width=400):
             input_img = gr.Image(
                 label="Live Camera Feed", 
@@ -223,8 +219,6 @@ with gr.Blocks(title="Smart Barrier AI v2.0") as demo:
                 height=600 
             )
 
-        # RIGHT: Results Panel
-        # min_width=300: Те саме, даємо свободу, бо CSS все одно тримає ширину 1200px
         with gr.Column(scale=1, min_width=300):
             with gr.Row():
                 out_crop = gr.Image(label="License Plate", interactive=False, elem_id="res_crop", height=200)
@@ -237,7 +231,6 @@ with gr.Blocks(title="Smart Barrier AI v2.0") as demo:
                 placeholder="Waiting for scan..."
             )
 
-    # 3. CONTROL DECK
     with gr.Row(variant="panel"):
         with gr.Column(scale=1):
             country_selector = gr.Dropdown(
@@ -261,7 +254,6 @@ with gr.Blocks(title="Smart Barrier AI v2.0") as demo:
                         btn_load_sql = gr.Button("Connect DB", size="sm")
                 db_stat = gr.Textbox(visible=False)
 
-    # Events
     scan_btn.click(
         pipeline, 
         inputs=[input_img, country_selector], 

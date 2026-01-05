@@ -37,7 +37,6 @@ def test_full_pipeline_detection(system_instance):
         assert len(processed.shape) == 3 and processed.shape[2] == 3, \
             "Processed image must be converted to RGB (3 channels) for Gradio display"
 
-    # 3. Перевірка тексту
     assert isinstance(text, str), "Text result must be a string"
 
 def test_detect_and_read_signature(system_instance):
@@ -51,7 +50,6 @@ def test_detect_on_blank_image_returns_none_or_empty(system_instance):
     if crop is not None:
         assert isinstance(crop, np.ndarray)
     assert isinstance(text, str)
-    # allow OCR to return empty string on no detection
     assert processed is None or (isinstance(processed, np.ndarray) and processed.size >= 0)
 
 def test_preprocessing_logic(system_instance):
@@ -59,7 +57,6 @@ def test_preprocessing_logic(system_instance):
     processed = system_instance.preprocess_plate(dummy_crop)
     assert isinstance(processed, np.ndarray)
     h, w = processed.shape[:2]
-    # Accept either orientation in case implementation swaps dims; require expected pair present
     assert (h == 210 and w == 360) or (h == 360 and w == 210), f"Unexpected processed size: {(h,w)}"
 
 def test_preprocess_plate_dtype_and_range(system_instance):
