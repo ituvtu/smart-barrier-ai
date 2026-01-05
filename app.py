@@ -39,7 +39,7 @@ class BarrierSystem:
             gpu=ocr_cfg.get("use_gpu", False),
             quantize=ocr_cfg.get("quantize", True)
         )
-        print("✅ System Ready!")
+        print("\n✅ System Ready!")
 
     def preprocess_plate(self, img_crop: np.ndarray) -> Optional[np.ndarray]:
         if img_crop is None or img_crop.size == 0:

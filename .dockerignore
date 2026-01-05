@@ -1,0 +1,20 @@
+# Ігноруємо віртуальні оточення
+.venv*/
+env/
+__pycache__/
+
+# Ігноруємо систему контролю версій
+.git/
+.gitignore
+
+# Ігноруємо важкі файли, які не потрібні для запуску (якщо є старі .pt)
+# Але залишаємо best.onnx та config.yaml!
+*.pt
+tests/
+assets/
+README.md
+
+.github
+.vscode
+*.pyc
+README_HF.yaml

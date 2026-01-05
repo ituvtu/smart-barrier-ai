@@ -1,0 +1,73 @@
+name: Deploy Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  # --- РОБОТА 1: DOCKERHUB ---
+  build-and-push-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/smart-barrier-ai:latest
+          # Docker автоматично використає .dockerignore, тому зайві файли не потраплять
+
+  # --- РОБОТА 2: HUGGING FACE SPACE ---
+  sync-to-huggingface:
+    runs-on: ubuntu-latest
+    needs: build-and-push-docker # Чекаємо, поки збереться Docker (опціонально)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare Files for Hugging Face
+        run: |
+          # 1. Об'єднуємо метадані та основний Readme
+          cat .github/README_HF.yaml README.md > README_TEMP.md
+          mv README_TEMP.md README.md
+          
+          # 2. Видаляємо файли, які не потрібні на HF (але є на GitHub)
+          rm -rf .github
+          rm -rf tests
+          rm -f .gitignore
+          # Якщо є інші службові файли, додай їх сюди rm -rf ...
+
+      - name: Push to Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USER: ituvtu
+          HF_SPACE: smart-barrier-ai 
+        run: |
+          # Ініціалізуємо тимчасовий гіт для відправки
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          
+          # Створюємо новий репозиторій з поточних файлів (вже очищених)
+          git init
+          git checkout -b main
+          git add .
+          git commit -m "Deploy from GitHub: $(date)"
+          
+          # Форсуємо відправку (перезаписуємо Space поточним станом)
+          git remote add space https://$HF_USER:$HF_TOKEN@huggingface.co/spaces/$HF_USER/$HF_SPACE
+          git push --force space main
