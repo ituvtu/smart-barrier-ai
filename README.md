@@ -22,7 +22,7 @@
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/ituvtu/smart-barrier-ai.git](https://github.com/ituvtu/smart-barrier-ai.git)
+    git clone https://github.com/ituvtu/smart-barrier-ai.git
     cd smart-barrier-ai
     ```
 
