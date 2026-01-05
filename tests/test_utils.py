@@ -1,4 +1,3 @@
-import pytest
 from utils import enforcer, fuzzy_check
 
 def test_clean_basic():
@@ -6,7 +5,7 @@ def test_clean_basic():
     assert enforcer.clean(raw) == "UAAA1234BB"
 
 def test_enforce_ua_correction():
-    dirty_input = "VABO0001OO" 
+    dirty_input = "VABO0001OO"
     expected = "BO0001OO"
     assert enforcer.enforce_ua(dirty_input) == expected
 
@@ -26,10 +25,10 @@ def test_fuzzy_check_exact_match():
     assert result == "AA0055BP"
 
 def test_fuzzy_check_one_error():
-    detected = "AA0O55BP" 
+    detected = "AA0O55BP"
     database = "AA0055BP"
     allowed, result, info = fuzzy_check(detected, database, "Auto")
-    
+
     assert allowed is True
     assert "Fuzzy fix" in info
 

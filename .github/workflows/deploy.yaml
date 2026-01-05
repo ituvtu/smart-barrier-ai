@@ -89,4 +89,22 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
+          # 1. Configure git user
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+          # 2. Remove unnecessary files and folders before push
+          rm -rf assets/ 
+          rm -rf test_images/ || true
+          rm -f .dockerignore Dockerfile Makefile || true
+
+          # 3. Initialize a fresh repo to avoid history conflicts
+          git init
+          git branch -m main
+
+          # 4. Add remaining files and commit
+          git add .
+          git commit -m "Deploy from GitHub: $(date)"
+
+          # 5. Force-push to HuggingFace Space
           git push --force https://ituvtu:$HF_TOKEN@huggingface.co/spaces/ituvtu/smart-barrier-ai main

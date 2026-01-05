@@ -21,17 +21,19 @@ class RegionEnforcer:
         max_score: int = -1
 
         if len(clean_text) < 8:
-            return text 
+            return text
 
         for i in range(len(clean_text) - 7):
             segment = list(clean_text[i : i+8])
             current_score = 0
-            
+
             for idx in [0, 1, 6, 7]:
-                if segment[idx].isalpha(): current_score += 1
+                if segment[idx].isalpha():
+                    current_score += 1
             for idx in range(2, 6):
-                if segment[idx].isdigit(): current_score += 1
-            
+                if segment[idx].isdigit():
+                    current_score += 1
+
             if current_score > max_score:
                 max_score = current_score
                 for idx in [0, 1, 6, 7]:
@@ -57,11 +59,11 @@ class RegionEnforcer:
 enforcer = RegionEnforcer()
 
 def fuzzy_check(
-    detected_raw: str, 
-    database_str: str, 
+    detected_raw: str,
+    database_str: str,
     region_code: str = "AUTO"
 ) -> Tuple[bool, str, str]:
-    
+
     processed_plate: str = detected_raw
     debug_info: str = f"Mode: {region_code}"
 
@@ -73,12 +75,12 @@ def fuzzy_check(
         debug_info += " -> EU Cleaned"
     else:
         processed_plate = enforcer.clean(detected_raw)
-    
+
     db_list: List[str] = [enforcer.clean(plate) for plate in database_str.split(',')]
-    
+
     if processed_plate in db_list:
         return True, processed_plate, debug_info
-    
+
     for db_plate in db_list:
         if len(db_plate) == len(processed_plate):
             diff = sum(1 for a, b in zip(db_plate, processed_plate) if a != b)

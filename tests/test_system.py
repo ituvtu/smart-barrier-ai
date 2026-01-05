@@ -23,7 +23,7 @@ def test_image_loading():
 def test_full_pipeline_detection(system_instance):
     img_bgr = cv2.imread(ASSET_PATH)
     assert img_bgr is not None, "Test image not found at ASSET_PATH"
-    
+
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
     crop, processed, text = system_instance.detect_and_read(img_rgb)
