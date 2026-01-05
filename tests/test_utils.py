@@ -6,8 +6,6 @@ def test_clean_basic():
     assert enforcer.clean(raw) == "UAAA1234BB"
 
 def test_enforce_ua_correction():
-    # Input: OCR confused '0' with 'O' and '8' with 'B'
-    # Format: LL DDDD LL
     dirty_input = "VABO0001OO" 
     expected = "BO0001OO"
     assert enforcer.enforce_ua(dirty_input) == expected

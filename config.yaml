@@ -1,5 +1,5 @@
 app:
-  title: "🛡️ Smart Barrier v4 (Enterprise)"
+  title: "Smart Barrier v4 (Enterprise)"
   theme: "soft"
   led_colors:
     allowed: "#00FF00"

@@ -19,7 +19,7 @@ CFG = load_config()
 
 class BarrierSystem:
     def __init__(self, config: Dict[str, Any]) -> None:
-        print("🛠️ System Initialization...")
+        print("Initializing System...")
         
         model_cfg = config.get("model", {})
         model_path = model_cfg.get("path", "best.pt")
@@ -39,7 +39,7 @@ class BarrierSystem:
             gpu=ocr_cfg.get("use_gpu", False),
             quantize=ocr_cfg.get("quantize", True)
         )
-        print("\n✅ System Ready!")
+        print("System Ready!")
 
     def preprocess_plate(self, img_crop: np.ndarray) -> Optional[np.ndarray]:
         if img_crop is None or img_crop.size == 0:
@@ -130,8 +130,8 @@ with gr.Blocks(theme=CFG.get("app", {}).get("theme", "soft")) as demo:
         with gr.Column(scale=2):
             input_img = gr.Image(label="Camera Feed", type="numpy", height=400)
             country_selector = gr.Radio(
-                choices=["Ukraine 🇺🇦", "Europe 🇪🇺", "Auto 🤖"], 
-                value="Ukraine 🇺🇦", 
+                choices=["Ukraine", "Europe", "Auto"], 
+                value="Ukraine", 
                 label="Region Mode",
                 info="Select plate standard for better accuracy"
             )
