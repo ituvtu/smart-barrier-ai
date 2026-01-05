@@ -6,26 +6,26 @@ import gradio as gr
 from ultralytics import YOLO
 from typing import Tuple, Optional, Any, Dict
 from utils import fuzzy_check
+from database import DataManager
 
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
     except FileNotFoundError:
-        print(f"⚠️ File {path} not found! Using defaults.")
         return {}
 
 CFG = load_config()
+data_manager = DataManager()
+data_manager.allowed_plates = {"AA0055BP", "KA0132CO", "BO0001OO"}
+data_manager.source_info = "Default Test Data"
 
 class BarrierSystem:
     def __init__(self, config: Dict[str, Any]) -> None:
-        print("Initializing System...")
-        
+        print("🚀 Initializing AI Core...")
         model_cfg = config.get("model", {})
         model_path = model_cfg.get("path", "best.pt")
-        
         task = model_cfg.get("task", "detect")
-        
         ocr_cfg = config.get("ocr", {})
         
         self.conf_threshold: float = model_cfg.get("conf_threshold", 0.25)
@@ -33,32 +33,26 @@ class BarrierSystem:
         self.ocr_allowlist: str = ocr_cfg.get("allowlist", "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         
         self.detector = YOLO(model_path, task=task)
-        
         self.reader = easyocr.Reader(
             ocr_cfg.get("languages", ['en']),
             gpu=ocr_cfg.get("use_gpu", False),
             quantize=ocr_cfg.get("quantize", True)
         )
-        print("System Ready!")
+        print("✅ System Ready!")
 
     def preprocess_plate(self, img_crop: np.ndarray) -> Optional[np.ndarray]:
-        if img_crop is None or img_crop.size == 0:
-            return None
-
+        if img_crop is None or img_crop.size == 0: return None
+        
         scale = self.prep_cfg.get("scale", 3)
-        pad = self.prep_cfg.get("padding", 30)
-        bil_d = self.prep_cfg.get("bilateral", {}).get("d", 11)
-        bil_sc = self.prep_cfg.get("bilateral", {}).get("sigma_color", 17)
-        bil_ss = self.prep_cfg.get("bilateral", {}).get("sigma_space", 17)
-
         h, w = img_crop.shape[:2]
         img_resized = cv2.resize(img_crop, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC)
         gray = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
-        gray_filtered = cv2.bilateralFilter(gray, bil_d, bil_sc, bil_ss)
         
-        return cv2.copyMakeBorder(
-            gray_filtered, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255
-        )
+        bil_d = self.prep_cfg.get("bilateral", {}).get("d", 11)
+        gray_filtered = cv2.bilateralFilter(gray, bil_d, 17, 17)
+        
+        pad = self.prep_cfg.get("padding", 30)
+        return cv2.copyMakeBorder(gray_filtered, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)
 
     def detect_and_read(self, image: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], str]:
         results = self.detector.predict(image, conf=self.conf_threshold, verbose=False)[0]
@@ -75,84 +69,157 @@ class BarrierSystem:
         if processed is None:
             return crop, None, "Processing error"
 
-        text_res = self.reader.readtext(
-            processed, 
-            detail=0, 
-            allowlist=self.ocr_allowlist
-        )
+        text_res = self.reader.readtext(processed, detail=0, allowlist=self.ocr_allowlist)
         full_text = "".join(text_res) if text_res else "Unreadable"
         
         return crop, processed, full_text
 
 system = BarrierSystem(CFG)
 
-def _led_html(color: str, text: str, shadow: bool = False) -> str:
-    s = f"0 0 20px {color}" if shadow else "none"
+def _led_html(color: str, text: str, status_icon: str) -> str:
+    border_color = color if color != "gray" else "#4b5563"
+    glow = f"box-shadow: 0 0 20px {color};" if color != "gray" else ""
+    
     return f"""
-    <div style="text-align:center; padding:10px; background:#333; border-radius:10px;">
-        <div style="width:50px; height:50px; background:{color}; border-radius:50%; margin:0 auto; box-shadow:{s}; border:2px solid #fff;"></div>
-        <h3 style="color:{color}; margin-top:5px;">{text}</h3>
+    <div style="
+        display: flex; 
+        align-items: center; 
+        justify-content: space-between; 
+        background: #111827; 
+        border: 1px solid {border_color};
+        border-radius: 8px; 
+        padding: 0 20px; 
+        height: 60px;
+    ">
+        <div style="display: flex; align-items: center;">
+            <div style="
+                width: 14px; height: 14px; 
+                background: {color}; 
+                border-radius: 50%; 
+                {glow}
+                margin-right: 12px;
+                border: 2px solid white;
+            "></div>
+            <span style="color: #e5e7eb; font-weight: 600; font-size: 1.1rem; letter-spacing: 0.05em;">
+                {text}
+            </span>
+        </div>
+        <div style="font-size: 1.5rem;">{status_icon}</div>
     </div>
     """
 
-def pipeline(
-    image: np.ndarray, 
-    db_text: str, 
-    country_mode: str
-) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], str, str]:
-    
-    led_colors = CFG.get("app", {}).get("led_colors", {})
-    col_wait = led_colors.get("wait", "gray")
-    col_allow = led_colors.get("allowed", "#00FF00")
-    col_deny = led_colors.get("denied", "#FF0000")
+def update_database(file, url, query):
+    if file:
+        success, msg = data_manager.load_source(file_obj=file)
+    elif url:
+        success, msg = data_manager.load_source(db_url=url, sql_query=query)
+    else:
+        return "⚠️ Select a source first"
+    return f"✅ {msg}" if success else f"❌ {msg}"
+
+def import_datetime():
+    from datetime import datetime
+    return datetime.now().strftime("%H:%M:%S")
+
+def pipeline(image: np.ndarray, region_code: str):
+    col_wait, col_allow, col_deny = "gray", "#10b981", "#ef4444"
 
     if image is None:
-        return None, None, _led_html(col_wait, "Waiting"), ""
+        return None, None, _led_html(col_wait, "SYSTEM IDLE", "💤"), ""
 
     crop_orig, crop_proc, raw_text = system.detect_and_read(image)
     
     if crop_orig is None:
-        return None, None, _led_html(col_deny, "No vehicle"), "Detector failed"
+        return None, None, _led_html(col_deny, "NO VEHICLE", "🚫"), "Status: No vehicle detected"
 
-    allowed, clean_num, info = fuzzy_check(raw_text, db_text, country_mode)
+    db_string = ",".join(data_manager.allowed_plates)
+    allowed, clean_num, info = fuzzy_check(raw_text, db_string, region_code)
     
-    log_text = f"Raw OCR: {raw_text}\nResult:  {clean_num}\nStatus:  {info}"
+    log_entry = (
+        f"🕒 TIME:   {import_datetime()}\n"
+        f"📂 SOURCE: {data_manager.source_info}\n"
+        f"📷 RAW:    {raw_text}\n"
+        f"🎯 RESULT: {clean_num}\n"
+        f"ℹ️ STATUS: {info}"
+    )
     
     if allowed:
-        return crop_orig, crop_proc, _led_html(col_allow, "ACCESS GRANTED", True), log_text
+        return crop_orig, crop_proc, _led_html(col_allow, "ACCESS GRANTED", "🔓"), log_entry
     else:
-        return crop_orig, crop_proc, _led_html(col_deny, "ACCESS DENIED"), log_text
+        return crop_orig, crop_proc, _led_html(col_deny, "ACCESS DENIED", "🔒"), log_entry
 
-with gr.Blocks(theme=CFG.get("app", {}).get("theme", "soft")) as demo:
-    gr.Markdown(f"## {CFG.get('app', {}).get('title', 'AI Barrier')}")
+dashboard_css = """
+.gradio-container { max-width: 98% !important; margin: 0 auto; }
+footer { display: none !important; }
+/* Примусово розтягуємо висоту контейнерів зображень */
+.image-container { min-height: 500px !important; }
+"""
+
+theme = gr.themes.Soft(
+    primary_hue="blue",
+    neutral_hue="slate"
+)
+
+with gr.Blocks(title="Smart Barrier AI v2.0") as demo:
     
-    with gr.Row():
+    with gr.Row(elem_id="header", equal_height=True):
         with gr.Column(scale=2):
-            input_img = gr.Image(label="Camera Feed", type="numpy", height=400)
-            country_selector = gr.Radio(
-                choices=["Ukraine", "Europe", "Auto"], 
-                value="Ukraine", 
-                label="Region Mode",
-                info="Select plate standard for better accuracy"
+            gr.Markdown("## 🛡️ Smart Barrier AI `v2.0`")
+        with gr.Column(scale=1):
+             led_status = gr.HTML(_led_html("gray", "SYSTEM READY", "✅"))
+
+    with gr.Row(equal_height=True):
+        
+        with gr.Column(scale=2, min_width=600):
+            input_img = gr.Image(
+                label="Live Camera Feed", 
+                type="numpy", 
+                height=600
             )
 
-        with gr.Column(scale=1):
-            led_init_col = CFG.get("app", {}).get("led_colors", {}).get("wait", "gray")
-            led = gr.HTML(_led_html(led_init_col, "Waiting"))
-            
+        with gr.Column(scale=1, min_width=300):
             with gr.Row():
-                out_crop = gr.Image(label="Crop", height=100)
-                out_proc = gr.Image(label="Processed", height=100)
-            logs = gr.Textbox(label="System Logs", lines=4)
+                out_crop = gr.Image(label="License Plate", height=150, interactive=False)
+                out_proc = gr.Image(label="Enhanced View", height=150, interactive=False)
             
-    db = gr.Textbox(label="Allowed Database", value="AA0055BP, KA0132CO, BO0001OO")
-    btn = gr.Button("Check Access", variant="primary")
-    
-    btn.click(
+            logs = gr.Textbox(
+                label="Event Log", 
+                lines=14,
+                interactive=False, 
+                placeholder="Waiting for scan..."
+            )
+
+    with gr.Row(variant="panel"):
+        with gr.Column(scale=1):
+            country_selector = gr.Dropdown(
+                choices=[("🇺🇦 Ukraine", "UA"), ("🇪🇺 Europe", "EU"), ("🤖 Auto-Detect", "AUTO")], 
+                value="UA", 
+                label="Processing Mode",
+                container=False
+            )
+        
+        with gr.Column(scale=2):
+            scan_btn = gr.Button("🔍 SCAN & VERIFY ACCESS", variant="primary", size="lg")
+
+        with gr.Column(scale=1):
+            with gr.Accordion("⚙️ Database Manager", open=False):
+                with gr.Tabs():
+                    with gr.TabItem("📄 File"):
+                        file_in = gr.File(file_count="single", file_types=[".csv", ".xlsx", ".json"], container=False)
+                        btn_load_file = gr.Button("Load File", size="sm")
+                    with gr.TabItem("🗄️ SQL"):
+                        sql_in = gr.Textbox(placeholder="postgresql://...", container=False, show_label=False)
+                        btn_load_sql = gr.Button("Connect DB", size="sm")
+                db_stat = gr.Textbox(visible=False)
+
+    scan_btn.click(
         pipeline, 
-        inputs=[input_img, db, country_selector], 
-        outputs=[out_crop, out_proc, led, logs]
+        inputs=[input_img, country_selector], 
+        outputs=[out_crop, out_proc, led_status, logs]
     )
+    
+    btn_load_file.click(update_database, inputs=[file_in, gr.State(None), gr.State(None)], outputs=[logs])
+    btn_load_sql.click(update_database, inputs=[gr.State(None), sql_in, gr.State("SELECT plate FROM users")], outputs=[logs])
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(theme=theme, css=dashboard_css)

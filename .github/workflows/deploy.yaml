@@ -83,13 +83,16 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_USER: ${{ secrets.HF_USER }}
           HF_SPACE: smart-barrier-ai
-        continue-on-error: true 
+        continue-on-error: true
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
           
+          rm -rf .git
+          
           git init
           git checkout -b main
+          
           git add .
           git commit -m "Deploy from GitHub: $(date)"
           

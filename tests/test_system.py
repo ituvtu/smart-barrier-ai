@@ -4,7 +4,6 @@ import os
 import numpy as np
 from app import BarrierSystem, load_config
 
-# Path to the test asset
 ASSET_PATH = os.path.join("assets", "test_car.jpg")
 
 @pytest.fixture(scope="module")

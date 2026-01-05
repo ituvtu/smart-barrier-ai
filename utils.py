@@ -17,7 +17,6 @@ class RegionEnforcer:
 
     def enforce_ua(self, text: str) -> str:
         clean_text = self.clean(text)
-        
         best_candidate: Optional[str] = None
         max_score: int = -1
 
@@ -30,21 +29,17 @@ class RegionEnforcer:
             
             for idx in [0, 1, 6, 7]:
                 if segment[idx].isalpha(): current_score += 1
-            
             for idx in range(2, 6):
                 if segment[idx].isdigit(): current_score += 1
             
             if current_score > max_score:
                 max_score = current_score
-                
                 for idx in [0, 1, 6, 7]:
                     if segment[idx] in self.int_to_char:
                         segment[idx] = self.int_to_char[segment[idx]]
-                
                 for idx in range(2, 6):
                     if segment[idx] in self.char_to_int:
                         segment[idx] = self.char_to_int[segment[idx]]
-                
                 best_candidate = "".join(segment)
 
         if max_score >= 5 and best_candidate:
@@ -54,7 +49,6 @@ class RegionEnforcer:
     def enforce_eu_general(self, text: str) -> str:
         clean_text = self.clean(text)
         prefixes: List[str] = ['UA', 'PL', 'LT', 'D', 'CZ', 'SK', 'II', '11']
-        
         for p in prefixes:
             if clean_text.startswith(p) and len(clean_text) > len(p) + 4:
                 return clean_text[len(p):]
@@ -65,16 +59,16 @@ enforcer = RegionEnforcer()
 def fuzzy_check(
     detected_raw: str, 
     database_str: str, 
-    country_mode: str = "Auto"
+    region_code: str = "AUTO"
 ) -> Tuple[bool, str, str]:
     
     processed_plate: str = detected_raw
-    debug_info: str = f"Mode: {country_mode}"
+    debug_info: str = f"Mode: {region_code}"
 
-    if "Ukraine" in country_mode:
+    if region_code == "UA":
         processed_plate = enforcer.enforce_ua(detected_raw)
         debug_info += " -> UA Enforced"
-    elif "Europe" in country_mode:
+    elif region_code == "EU":
         processed_plate = enforcer.enforce_eu_general(detected_raw)
         debug_info += " -> EU Cleaned"
     else:
