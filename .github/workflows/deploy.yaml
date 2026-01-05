@@ -92,22 +92,37 @@ jobs:
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
           
-          echo "🧹 Cleaning up large files before push..."
+          cat <<EOF > hf_header.txt
+          ---
+          title: Smart Barrier AI
+          emoji: 🛡️
+          colorFrom: blue
+          colorTo: indigo
+          sdk: gradio
+          sdk_version: 5.0.0
+          app_file: app.py
+          pinned: false
+          license: mit
+          ---
           
+          EOF
+          
+          cat hf_header.txt README.md > README_temp.md
+          mv README_temp.md README.md
+          rm hf_header.txt
+
+          echo "🧹 Cleaning up..."
           rm -rf assets/ test_images/
           rm -f .dockerignore Dockerfile Makefile
           
           find . -name "*.pt" -type f -delete
           find . -name "*.onnx" -type f -delete
           
-          echo "📂 Files remaining in directory:"
-          ls -lh
-          
           rm -rf .git
           git init
           git branch -m main
           
           git add .
-          git commit -m "Deploy from GitHub: $(date)"
+          git commit -m "Deploy from GitHub with Metadata: $(date)"
           
           git push --force https://ituvtu:$HF_TOKEN@huggingface.co/spaces/ituvtu/smart-barrier-ai main
