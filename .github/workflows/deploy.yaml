@@ -73,7 +73,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  sync-repositories:
+  sync-to-huggingface:
     name: Sync to HuggingFace Hub
     needs: validate-and-test
     runs-on: ubuntu-latest
@@ -85,27 +85,29 @@ jobs:
           fetch-depth: 0
           lfs: true
       
-      - name: Sync to HuggingFace Spaces
+      - name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # 1. Configure git user
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-
-          # 2. Remove unnecessary files and folders before push
-          rm -rf assets/
-          rm -rf test_images/ || true
-          rm -f .dockerignore Dockerfile Makefile || true
-          rm -f *.pt *.onnx
-
-          # 3. Initialize a fresh repo to avoid history conflicts
+          
+          echo "🧹 Cleaning up large files before push..."
+          
+          rm -rf assets/ test_images/
+          rm -f .dockerignore Dockerfile Makefile
+          
+          find . -name "*.pt" -type f -delete
+          find . -name "*.onnx" -type f -delete
+          
+          echo "📂 Files remaining in directory:"
+          ls -lh
+          
+          rm -rf .git
           git init
           git branch -m main
-
-          # 4. Add remaining files and commit
+          
           git add .
           git commit -m "Deploy from GitHub: $(date)"
-
-          # 5. Force-push to HuggingFace Space
+          
           git push --force https://ituvtu:$HF_TOKEN@huggingface.co/spaces/ituvtu/smart-barrier-ai main
