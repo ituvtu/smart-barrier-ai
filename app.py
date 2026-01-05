@@ -8,6 +8,7 @@ from typing import Tuple, Optional, Any, Dict
 from utils import fuzzy_check
 from database import DataManager
 
+# --- 1. CONFIGURATION ---
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -20,6 +21,7 @@ data_manager = DataManager()
 data_manager.allowed_plates = {"AA0055BP", "KA0132CO", "BO0001OO"}
 data_manager.source_info = "Default Test Data"
 
+# --- 2. CORE LOGIC ---
 class BarrierSystem:
     def __init__(self, config: Dict[str, Any]) -> None:
         print("🚀 Initializing AI Core...")
@@ -33,6 +35,7 @@ class BarrierSystem:
         self.ocr_allowlist: str = ocr_cfg.get("allowlist", "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         
         self.detector = YOLO(model_path, task=task)
+        
         self.reader = easyocr.Reader(
             ocr_cfg.get("languages", ['en']),
             gpu=ocr_cfg.get("use_gpu", False),
@@ -69,13 +72,24 @@ class BarrierSystem:
         if processed is None:
             return crop, None, "Processing error"
 
-        text_res = self.reader.readtext(processed, detail=0, allowlist=self.ocr_allowlist)
+        # LOGICAL FILTER
+        text_res = self.reader.readtext(
+            processed, 
+            detail=0, 
+            allowlist=self.ocr_allowlist,
+            min_size=50 
+        )
         full_text = "".join(text_res) if text_res else "Unreadable"
         
-        return crop, processed, full_text
+        # COLOR FIX
+        crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+        processed_rgb = cv2.cvtColor(processed, cv2.COLOR_GRAY2RGB)
+        
+        return crop_rgb, processed_rgb, full_text
 
 system = BarrierSystem(CFG)
 
+# --- 3. UI HELPERS ---
 def _led_html(color: str, text: str, status_icon: str) -> str:
     border_color = color if color != "gray" else "#4b5563"
     glow = f"box-shadow: 0 0 20px {color};" if color != "gray" else ""
@@ -148,11 +162,38 @@ def pipeline(image: np.ndarray, region_code: str):
     else:
         return crop_orig, crop_proc, _led_html(col_deny, "ACCESS DENIED", "🔒"), log_entry
 
+# --- 4. STATIC LAYOUT CSS ---
+
 dashboard_css = """
-.gradio-container { max-width: 98% !important; margin: 0 auto; }
+/* 1. ПРИМУСОВА ФІКСАЦІЯ ШИРИНИ */
+.gradio-container { 
+    max-width: 100% !important; 
+    margin: 0 !important;
+    /* Це забороняє інтерфейсу стискатися менше ніж 1200px */
+    min-width: 1200px !important; 
+    width: 1200px !important;
+}
 footer { display: none !important; }
-/* Примусово розтягуємо висоту контейнерів зображень */
-.image-container { min-height: 500px !important; }
+
+/* 2. ФІКСАЦІЯ ВИСОТИ КАМЕРИ */
+#main_camera { 
+    height: 600px !important; 
+    min-height: 600px !important; 
+}
+#main_camera > .wrap { 
+    height: 100% !important; 
+    min-height: 600px !important;
+}
+#main_camera img { 
+    object-fit: contain; 
+    max-height: 580px !important; 
+}
+
+/* 3. ФІКСАЦІЯ РЕЗУЛЬТАТІВ */
+#res_crop, #res_proc {
+    height: 200px !important;
+    min-height: 200px !important;
+}
 """
 
 theme = gr.themes.Soft(
@@ -162,33 +203,41 @@ theme = gr.themes.Soft(
 
 with gr.Blocks(title="Smart Barrier AI v2.0") as demo:
     
+    # 1. HEADER
     with gr.Row(elem_id="header", equal_height=True):
         with gr.Column(scale=2):
             gr.Markdown("## 🛡️ Smart Barrier AI `v2.0`")
         with gr.Column(scale=1):
              led_status = gr.HTML(_led_html("gray", "SYSTEM READY", "✅"))
 
-    with gr.Row(equal_height=True):
+    # 2. MAIN WORKSPACE
+    with gr.Row(equal_height=True, elem_id="main_row"):
         
-        with gr.Column(scale=2, min_width=600):
+        # LEFT: Camera Feed
+        # min_width=400: Дозволяємо йому бути трохи вужчим, щоб не ламати рядок
+        with gr.Column(scale=2, min_width=400):
             input_img = gr.Image(
                 label="Live Camera Feed", 
                 type="numpy", 
-                height=600
+                elem_id="main_camera", 
+                height=600 
             )
 
+        # RIGHT: Results Panel
+        # min_width=300: Те саме, даємо свободу, бо CSS все одно тримає ширину 1200px
         with gr.Column(scale=1, min_width=300):
             with gr.Row():
-                out_crop = gr.Image(label="License Plate", height=150, interactive=False)
-                out_proc = gr.Image(label="Enhanced View", height=150, interactive=False)
+                out_crop = gr.Image(label="License Plate", interactive=False, elem_id="res_crop", height=200)
+                out_proc = gr.Image(label="Enhanced View", interactive=False, elem_id="res_proc", height=200)
             
             logs = gr.Textbox(
                 label="Event Log", 
-                lines=14,
+                lines=14, 
                 interactive=False, 
                 placeholder="Waiting for scan..."
             )
 
+    # 3. CONTROL DECK
     with gr.Row(variant="panel"):
         with gr.Column(scale=1):
             country_selector = gr.Dropdown(
@@ -212,6 +261,7 @@ with gr.Blocks(title="Smart Barrier AI v2.0") as demo:
                         btn_load_sql = gr.Button("Connect DB", size="sm")
                 db_stat = gr.Textbox(visible=False)
 
+    # Events
     scan_btn.click(
         pipeline, 
         inputs=[input_img, country_selector], 
