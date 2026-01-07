@@ -1,12 +1,14 @@
 gradio>=5.0.0
 huggingface_hub>=0.27.0
+
 ultralytics>=8.0.0
 onnxruntime
+
 easyocr
 opencv-python-headless
 numpy
-PyYAML
 pandas
 sqlalchemy
 psycopg2-binary
 pymysql
+PyYAML
