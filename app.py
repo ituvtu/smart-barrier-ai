@@ -9,7 +9,7 @@ from typing import Tuple, Optional, Any, Dict
 from utils import fuzzy_check
 from database import DataManager
 
-MODEL_REPO = "ituvtu/smart-barrier-model" 
+MODEL_REPO = "ituvtu/smart-barrier-model"
 MODEL_FILENAME = "best.onnx"
 
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
@@ -28,17 +28,17 @@ data_manager.source_info = "Default Test Data"
 class BarrierSystem:
     def __init__(self, config: Dict[str, Any]) -> None:
         print("🚀 Initializing Smart Barrier System...")
-        
+
         self.detector = None
         self.initialization_error = None
-        
+
         try:
             print(f"📥 Downloading model from {MODEL_REPO}...")
             model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILENAME)
-            
+
             self.detector = YOLO(model_path, task='detect')
             print(f"✅ Model loaded successfully: {model_path}")
-            
+
         except Exception as error:
             print(f"❌ Failed to initialize model: {error}")
             self.initialization_error = str(error)
@@ -48,7 +48,7 @@ class BarrierSystem:
         self.prep_cfg = config.get("preprocessing", {})
         self.conf_threshold: float = config.get("model", {}).get("conf_threshold", 0.25)
         self.ocr_allowlist: str = ocr_cfg.get("allowlist", "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-        
+
         self.reader = easyocr.Reader(
             ocr_cfg.get("languages", ['en']),
             gpu=False,
@@ -64,10 +64,10 @@ class BarrierSystem:
         h, w = img_crop.shape[:2]
         img_resized = cv2.resize(img_crop, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC)
         gray = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
-        
+
         bil_d = self.prep_cfg.get("bilateral", {}).get("d", 11)
         gray_filtered = cv2.bilateralFilter(gray, bil_d, 17, 17)
-        
+
         pad = self.prep_cfg.get("padding", 30)
         return cv2.copyMakeBorder(gray_filtered, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)
 
@@ -82,30 +82,30 @@ class BarrierSystem:
             results = self.detector.predict(image, conf=self.conf_threshold, verbose=False)[0]
         except Exception as e:
             return None, None, f"Inference Error: {str(e)}"
-        
+
         if not results.boxes:
             return None, None, "Plate not detected"
-        
+
         box = results.boxes[0]
         x1, y1, x2, y2 = map(int, box.xyxy[0])
-        
+
         crop = image[y1:y2, x1:x2]
         processed = self.preprocess_plate(crop)
-        
+
         if processed is None:
             return crop, None, "Processing error"
 
         text_res = self.reader.readtext(
-            processed, 
-            detail=0, 
+            processed,
+            detail=0,
             allowlist=self.ocr_allowlist,
-            min_size=10 
+            min_size=10
         )
         full_text = "".join(text_res) if text_res else "Unreadable"
-        
+
         crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
         processed_rgb = cv2.cvtColor(processed, cv2.COLOR_GRAY2RGB)
-        
+
         return crop_rgb, processed_rgb, full_text
 
 system = BarrierSystem(CFG)
@@ -135,13 +135,13 @@ def pipeline_wrapper(image, region_code):
         return None, None, _led_html(col_wait, "SYSTEM IDLE", "💤"), ""
 
     crop_orig, crop_proc, raw_text = system.detect_and_read(image)
-    
+
     if crop_orig is None:
         return None, None, _led_html(col_deny, "NO VEHICLE", "🚫"), f"Status: {raw_text}"
 
     db_string = ",".join(data_manager.allowed_plates)
     allowed, clean_num, info = fuzzy_check(raw_text, db_string, region_code)
-    
+
     log_entry = (
         f"🕒 TIME:   {import_datetime()}\n"
         f"📂 SOURCE: {data_manager.source_info}\n"
@@ -149,7 +149,7 @@ def pipeline_wrapper(image, region_code):
         f"🎯 RESULT: {clean_num}\n"
         f"ℹ️ STATUS: {info}"
     )
-    
+
     if allowed:
         return crop_orig, crop_proc, _led_html(col_allow, "ACCESS GRANTED", "🔓"), log_entry
     else:
@@ -175,12 +175,12 @@ with gr.Blocks(title="Smart Barrier AI", theme=theme, css=dashboard_css) as demo
             logs = gr.Textbox(label="Logs", lines=10)
 
     scan_btn = gr.Button("🔍 SCAN", variant="primary")
-    
+
     country_selector = gr.Dropdown(choices=["UA", "EU"], value="UA", visible=False)
 
     scan_btn.click(
-        pipeline_wrapper, 
-        inputs=[input_img, country_selector], 
+        pipeline_wrapper,
+        inputs=[input_img, country_selector],
         outputs=[out_crop, gr.Image(visible=False), led_status, logs]
     )
 
