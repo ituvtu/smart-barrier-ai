@@ -14,7 +14,7 @@ env:
   IMAGE_NAME: smart-barrier-ai
 
 jobs:
-  check-quality:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -34,8 +34,8 @@ jobs:
       - name: Lint with Ruff
         run: ruff check . --select E,W,F --ignore E501
 
-  build-docker:
-    needs: check-quality
+  build:
+    needs: validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -52,8 +52,8 @@ jobs:
           tags: smart-barrier-ai:test
           no-cache: true
 
-  sync-to-huggingface:
-    needs: check-quality
+  deploy:
+    needs: validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -73,7 +73,7 @@ jobs:
           ---
           title: Smart Barrier AI
           emoji: 🛡️
-          colorFrom: blue
+          colorFrom: emerald
           colorTo: indigo
           sdk: docker
           pinned: false

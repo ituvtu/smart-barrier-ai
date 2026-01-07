@@ -9,8 +9,8 @@ from typing import Tuple, Optional, Any, Dict
 from utils import fuzzy_check
 from database import DataManager
 
-MODEL_REPO = "ituvtu/smart-barrier-model"
-MODEL_FILENAME = "best.onnx"
+MODEL_REPO = "ituvtu/yolo-v10-car-plate-detector"
+MODEL_FILENAME = "yolo-v10-m.onnx"
 
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
     try:
