@@ -57,8 +57,9 @@ class BarrierSystem:
         print("✅ System Ready!")
 
     def preprocess_plate(self, img_crop: np.ndarray) -> Optional[np.ndarray]:
-        if img_crop is None or img_crop.size == 0: return None
-        
+        if img_crop is None or img_crop.size == 0:
+            return None
+
         scale = self.prep_cfg.get("scale", 3)
         h, w = img_crop.shape[:2]
         img_resized = cv2.resize(img_crop, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC)
