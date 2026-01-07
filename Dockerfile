@@ -9,6 +9,7 @@ RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/c
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN echo "=== Installed Packages ===" && pip list | grep -E "(gradio|huggingface|onnxruntime|ultralytics)"
 
 
 FROM python:3.10-slim

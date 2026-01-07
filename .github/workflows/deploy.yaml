@@ -71,8 +71,8 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/smart-barrier-ai:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
 
   sync-to-huggingface:
     name: Sync to HuggingFace Hub
