@@ -4,7 +4,7 @@ WORKDIR /app
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
+ENV LAST_UPDATED=2026-01-07_16-15
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 COPY requirements.txt .
