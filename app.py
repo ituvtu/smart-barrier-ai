@@ -128,7 +128,7 @@ def import_datetime():
     from datetime import datetime
     return datetime.now().strftime("%H:%M:%S")
 
-def pipeline_wrapper(image, region_code):
+def pipeline_wrapper(image, region_code, allowed_list_str=""):
     col_wait, col_allow, col_deny = "gray", "#10b981", "#ef4444"
 
     if image is None:
@@ -139,7 +139,11 @@ def pipeline_wrapper(image, region_code):
     if crop_orig is None:
         return None, None, _led_html(col_deny, "NO VEHICLE", "🚫"), f"Status: {raw_text}"
 
-    db_string = ",".join(data_manager.allowed_plates)
+    if allowed_list_str.strip():
+        db_string = allowed_list_str
+        data_manager.source_info = "Manual Input"
+    else:
+        db_string = ",".join(data_manager.allowed_plates)
     allowed, clean_num, info = fuzzy_check(raw_text, db_string, region_code)
 
     log_entry = (
@@ -174,13 +178,20 @@ with gr.Blocks(title="Smart Barrier AI", theme=theme, css=dashboard_css) as demo
             out_crop = gr.Image(label="Plate", interactive=False, height=200)
             logs = gr.Textbox(label="Logs", lines=10)
 
+    allow_list_input = gr.Textbox(
+        label="✅ Allowed Plates (Whitelist)",
+        placeholder="Example: AA0055BP, KA1234BC, BO0001OO",
+        value="AA0055BP, KA0132CO, BO0001OO",
+        lines=2
+    )
+
     scan_btn = gr.Button("🔍 SCAN", variant="primary")
 
     country_selector = gr.Dropdown(choices=["UA", "EU"], value="UA", visible=False)
 
     scan_btn.click(
         pipeline_wrapper,
-        inputs=[input_img, country_selector],
+        inputs=[input_img, country_selector, allow_list_input],
         outputs=[out_crop, gr.Image(visible=False), led_status, logs]
     )
 
