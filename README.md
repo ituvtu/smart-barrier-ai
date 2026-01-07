@@ -1,9 +1,8 @@
 # 🛡️ Smart Barrier AI
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)
-![YOLOv10](https://img.shields.io/badge/YOLO-v10m-green?style=for-the-badge)
 ![Gradio](https://img.shields.io/badge/Gradio-4.0%2B-orange?style=for-the-badge)
-![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-red?style=for-the-badge)
+![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ituvtu/smart-barrier-ai)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey?style=for-the-badge)
 
 **Smart Barrier AI** is an intelligent vehicle access control system designed to automate gate operations. It utilizes a fine-tuned **YOLOv10m** model for license plate detection and **EasyOCR** for text recognition, enhanced by robust image preprocessing and region-specific post-processing logic.

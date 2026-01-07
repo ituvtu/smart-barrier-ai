@@ -3,11 +3,14 @@ import cv2
 import easyocr
 import numpy as np
 import gradio as gr
+import warnings
 from ultralytics import YOLO
 from huggingface_hub import hf_hub_download
 from typing import Tuple, Optional, Any, Dict
 from utils import fuzzy_check
 from database import DataManager
+
+warnings.filterwarnings('ignore', message='.*pin_memory.*')
 
 MODEL_REPO = "ituvtu/yolo-v10-car-plate-detector"
 MODEL_FILENAME = "yolo-v10-m.onnx"
@@ -166,7 +169,7 @@ footer { display: none !important; }
 
 theme = gr.themes.Soft(primary_hue="blue", neutral_hue="slate")
 
-with gr.Blocks(title="Smart Barrier AI", theme=theme, css=dashboard_css) as demo:
+with gr.Blocks(title="Smart Barrier AI") as demo:
     with gr.Row():
         gr.Markdown("## 🛡️ Smart Barrier AI (ONNX Engine)")
         led_status = gr.HTML(_led_html("gray", "SYSTEM READY", "✅"))
@@ -196,4 +199,4 @@ with gr.Blocks(title="Smart Barrier AI", theme=theme, css=dashboard_css) as demo
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name="127.0.0.1", server_port=7860, theme=theme, css=dashboard_css)
