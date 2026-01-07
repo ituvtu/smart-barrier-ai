@@ -10,8 +10,8 @@ from typing import Tuple, Optional, Any, Dict
 from utils import fuzzy_check
 from database import DataManager
 
-MODEL_REPO = "ituvtu/yolo-v10-car-plate-detector"
-MODEL_FILENAME = "yolo-v10-m.pt"
+MODEL_REPO = "ituvtu/smart-barrier-model"
+MODEL_FILENAME = "best.onnx"
 
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
     try:
@@ -35,8 +35,8 @@ class BarrierSystem:
         try:
             print(f"📥 Downloading model from {MODEL_REPO}...")
             model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILENAME)
-            self.detector = YOLO(model_path)
-            print(f"✅ Model loaded successfully from: {model_path}")
+            self.detector = YOLO(model_path, task='detect')
+            print(f"✅ Model loaded: {model_path} (Engine: ONNX Runtime)")
         except Exception as error:
             print(f"❌ Failed to initialize model: {error}")
             self.initialization_error = str(error)

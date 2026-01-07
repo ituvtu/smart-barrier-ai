@@ -1,9 +1,10 @@
-huggingface_hub
-ultralytics
-gradio
+gradio>=5.0.0
+huggingface_hub>=0.27.0
+ultralytics>=8.0.0
+onnxruntime
 easyocr
-numpy
 opencv-python-headless
+numpy
 PyYAML
 pandas
 sqlalchemy
