@@ -50,7 +50,8 @@ jobs:
           context: .
           push: false 
           tags: smart-barrier-ai:test
-          no-cache: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   publish-huggingface:
     needs: lint-and-test
@@ -59,8 +60,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          lfs: true
+          fetch-depth: 1
       
       - name: Push to Hub
         env:

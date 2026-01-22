@@ -36,7 +36,7 @@ class BarrierSystem:
         self.initialization_error = None
 
         try:
-            print(f"📥 Downloading model from {MODEL_REPO}...")
+            print(f" Downloading model from {MODEL_REPO}...")
             model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILENAME)
 
             self.detector = YOLO(model_path, task='detect')
@@ -199,4 +199,4 @@ with gr.Blocks(title="Smart Barrier AI") as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", server_port=7860, theme=theme, css=dashboard_css)
+    demo.launch(server_name="0.0.0.0", server_port=7860, theme=theme, css=dashboard_css)
