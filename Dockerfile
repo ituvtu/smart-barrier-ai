@@ -25,6 +25,9 @@ COPY --chown=user . .
 
 USER user
 ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+    PATH=/home/user/.local/bin:$PATH \
+    YOLO_CONFIG_DIR=/tmp/Ultralytics
+
+RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False)"
 
 CMD ["python", "app.py"]
